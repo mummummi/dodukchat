@@ -1,5 +1,5 @@
 export default async function handler(req, res) {
-  // CORS 헤더 설정
+  // 1. CORS 헤더 설정
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
-  // Vercel 환경변수에서 API 키 가져오기 (외부 노출 안전)
+  // 2. Vercel 환경변수에서 키 가져오기
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return res.status(500).json({ error: 'GEMINI_API_KEY 환경변수가 설정되지 않았습니다.' });
@@ -18,7 +18,6 @@ export default async function handler(req, res) {
 
   try {
     if (type === 'text') {
-      // Google API 표준 v1beta REST 엔드포인트
       const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
       let sysPart = undefined;
@@ -44,24 +43,18 @@ export default async function handler(req, res) {
       const result = await apiRes.json();
 
       if (!apiRes.ok || result.error) {
-        console.error("Gemini API 호출 에러 상세:", result.error);
-        return res.status(apiRes.status || 500).json({ error: result.error?.message || "Gemini API 호출 실패" });
+        return res.status(apiRes.status || 500).json({ error: result.error?.message || "API 호출 오류" });
       }
 
       const responseText = result?.candidates?.[0]?.content?.parts?.[0]?.text || "";
       return res.status(200).json({ text: responseText });
 
     } else if (type === 'image') {
-      // Imagen 3 기반 이미지 생성 엔드포인트
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:generateImages?key=${apiKey}`;
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`;
 
       const payload = {
-        prompt: prompt,
-        config: {
-          numberOfImages: 1,
-          outputMimeType: "image/jpeg",
-          aspectRatio: "1:1"
-        }
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: "1:1" } }
       };
 
       const apiRes = await fetch(apiUrl, {
@@ -71,19 +64,18 @@ export default async function handler(req, res) {
       });
 
       const result = await apiRes.json();
+      const part = result?.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
 
-      if (result.generatedImages && result.generatedImages.length > 0) {
-        const base64Data = result.generatedImages[0].image.imageBytes;
-        const imageUrl = `data:image/jpeg;base64,${base64Data}`;
+      if (part && part.inlineData) {
+        const imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
         return res.status(200).json({ imageUrl });
       } else {
         return res.status(500).json({ error: result.error?.message || '이미지 생성 실패' });
       }
     } else {
-      return res.status(400).json({ error: '잘못된 요청 타입입니다.' });
+      return res.status(400).json({ error: '잘못된 요청 형식입니다.' });
     }
   } catch (err) {
-    console.error("백엔드 서버 에러:", err);
     return res.status(500).json({ error: err.message });
   }
 }
