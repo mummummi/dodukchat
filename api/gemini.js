@@ -1,5 +1,5 @@
 export default async function handler(req, res) {
-  // CORS 처리 (필요시)
+  // CORS 헤더 설정
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  // 서버 환경변수에 숨겨둔 API Key
+  // Vercel 환경 변수에서 Gemini API 키 읽기
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
@@ -25,9 +25,14 @@ export default async function handler(req, res) {
 
   try {
     if (type === 'text') {
-      // 1. Gemini 대화 텍스트 생성
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
-      const payload = { contents, systemInstruction };
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+      const payload = { 
+        contents, 
+        systemInstruction,
+        generationConfig: {
+          temperature: 0.7
+        }
+      };
 
       const apiRes = await fetch(apiUrl, {
         method: 'POST',
@@ -40,7 +45,6 @@ export default async function handler(req, res) {
       return res.status(200).json({ text: responseText });
 
     } else if (type === 'image') {
-      // 2. Gemini 캠페인 이미지 생성
       const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent?key=${apiKey}`;
       const payload = {
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
