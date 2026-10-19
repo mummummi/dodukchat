@@ -17,8 +17,8 @@ export default async function handler(req, res) {
 
   try {
     if (type === 'text') {
-      // v1beta 버전의 gemini-2.5-flash 호환 모델 사용
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+      // 가장 안정적인 gemini-1.5-flash 표준 엔드포인트 사용
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
       let sysPart = undefined;
       if (systemInstruction) {
@@ -51,11 +51,16 @@ export default async function handler(req, res) {
       return res.status(200).json({ text: responseText });
 
     } else if (type === 'image') {
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`;
+      // 이미지 생성 전용 엔드포인트
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:generateImages?key=${apiKey}`;
 
       const payload = {
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: "1:1" } }
+        prompt: prompt,
+        config: {
+          numberOfImages: 1,
+          outputMimeType: "image/jpeg",
+          aspectRatio: "1:1"
+        }
       };
 
       const apiRes = await fetch(apiUrl, {
@@ -65,10 +70,10 @@ export default async function handler(req, res) {
       });
 
       const result = await apiRes.json();
-      const part = result?.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
 
-      if (part && part.inlineData) {
-        const imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+      if (result.generatedImages && result.generatedImages.length > 0) {
+        const base64Data = result.generatedImages[0].image.imageBytes;
+        const imageUrl = `data:image/jpeg;base64,${base64Data}`;
         return res.status(200).json({ imageUrl });
       } else {
         return res.status(500).json({ error: result.error?.message || '이미지 생성 실패' });
