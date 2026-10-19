@@ -8,6 +8,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
+  // Vercel 환경변수에서 API 키 가져오기 (외부 노출 안전)
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return res.status(500).json({ error: 'GEMINI_API_KEY 환경변수가 설정되지 않았습니다.' });
@@ -17,7 +18,7 @@ export default async function handler(req, res) {
 
   try {
     if (type === 'text') {
-      // 가장 안정적인 gemini-1.5-flash 표준 엔드포인트 사용
+      // Google API 표준 v1beta REST 엔드포인트
       const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
       let sysPart = undefined;
@@ -43,15 +44,15 @@ export default async function handler(req, res) {
       const result = await apiRes.json();
 
       if (!apiRes.ok || result.error) {
-        console.error("Gemini API Error Detail:", result.error);
-        return res.status(apiRes.status || 500).json({ error: result.error?.message || "API 호출 오류" });
+        console.error("Gemini API 호출 에러 상세:", result.error);
+        return res.status(apiRes.status || 500).json({ error: result.error?.message || "Gemini API 호출 실패" });
       }
 
       const responseText = result?.candidates?.[0]?.content?.parts?.[0]?.text || "";
       return res.status(200).json({ text: responseText });
 
     } else if (type === 'image') {
-      // 이미지 생성 전용 엔드포인트
+      // Imagen 3 기반 이미지 생성 엔드포인트
       const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:generateImages?key=${apiKey}`;
 
       const payload = {
@@ -79,10 +80,10 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: result.error?.message || '이미지 생성 실패' });
       }
     } else {
-      return res.status(400).json({ error: '잘못된 요청 형식입니다.' });
+      return res.status(400).json({ error: '잘못된 요청 타입입니다.' });
     }
   } catch (err) {
-    console.error("백엔드 예외 에러:", err);
+    console.error("백엔드 서버 에러:", err);
     return res.status(500).json({ error: err.message });
   }
 }
