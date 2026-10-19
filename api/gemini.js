@@ -17,8 +17,8 @@ module.exports = async function handler(req, res) {
 
   try {
     if (type === 'text') {
-      // 구형 gemini-1.5-flash 대신 최신 gemini-2.5-flash 모델 적용
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+      // 구글 공식 안내 메시지에 맞춰 최신 gemini-3.8-flash 모델 적용
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
 
       let sysPart = undefined;
       if (systemInstruction) {
