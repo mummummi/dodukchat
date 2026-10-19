@@ -17,8 +17,8 @@ module.exports = async function handler(req, res) {
 
   try {
     if (type === 'text') {
-      // 가장 안정적인 1.5-flash 모델 적용
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      // 구형 gemini-1.5-flash 대신 최신 gemini-2.5-flash 모델 적용
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
       let sysPart = undefined;
       if (systemInstruction) {
@@ -43,7 +43,7 @@ module.exports = async function handler(req, res) {
       const result = await apiRes.json();
 
       if (!apiRes.ok || result.error) {
-        return res.status(500).json({ error: result.error?.message || "Google API 오류" });
+        return res.status(apiRes.status || 500).json({ error: result.error?.message || "Google API 오류" });
       }
 
       const responseText = result?.candidates?.[0]?.content?.parts?.[0]?.text || "";
