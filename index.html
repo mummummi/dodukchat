@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>지구촌 어린이와 함께하는 인류애 나눔 챗봇</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter & Noto Sans KR -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #f0f2f5;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        /* Custom Scrollbar for Chat Bubble Container */
+        .chat-scroll::-webkit-scrollbar {
+            width: 4px;
+        }
+        .chat-scroll::-webkit-scrollbar-thumb {
+            background-color: rgba(0, 0, 0, 0.15);
+            border-radius: 4px;
+        }
+        .chat-bg {
+            background-color: #b2c7da; /* KakaoTalk Chatroom Background Color */
+        }
+        .speech-bubble-left::after {
+            content: '';
+            position: absolute;
+            left: -8px;
+            top: 10px;
+            border-width: 5px 8px 5px 0;
+            border-style: solid;
+            border-color: transparent #ffffff transparent transparent;
+        }
+        .speech-bubble-right::after {
+            content: '';
+            position: absolute;
+            right: -8px;
+            top: 10px;
+            border-width: 5px 0 5px 8px;
+            border-style: solid;
+            border-color: transparent transparent transparent #ffe812;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex justify-center items-center overflow-hidden p-0 sm:p-4">
+
+    <!-- MAIN APP CONTAINER -->
+    <div class="w-full sm:max-w-md h-full sm:h-[90vh] bg-white sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden relative border border-gray-200">
+        
+        <!-- TOP HEADER NAVBAR -->
+        <header class="bg-[#3a1d1d] text-white px-4 py-3 flex items-center justify-between shadow-md z-20">
+            <div class="flex items-center gap-3">
+                <button id="back-btn" onclick="showPersonaList()" class="hidden text-white hover:text-yellow-300 transition-colors">
+                    <i class="fa-solid fa-chevron-left text-xl"></i>
+                </button>
+                <div class="flex flex-col">
+                    <h1 id="header-title" class="font-bold text-lg leading-tight text-yellow-300">지구촌 친구들</h1>
+                    <span id="header-subtitle" class="text-xs text-gray-300">6학년 도덕 6단원 2~3차시</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <!-- 백엔드 서버 연동 완료로 API 키 모달 버튼 삭제, 바로 대화/캠페인 탭 제공 -->
+                <button onclick="switchTab('chat')" id="tab-chat-btn" class="px-3 py-1 bg-yellow-400 text-amber-950 font-bold rounded-full text-xs shadow hover:bg-yellow-300">
+                    <i class="fa-solid fa-comments mr-1"></i> 대화하기
+                </button>
+                <button onclick="switchTab('campaign')" id="tab-campaign-btn" class="px-3 py-1 bg-gray-700 text-gray-200 font-bold rounded-full text-xs shadow hover:bg-gray-600">
+                    <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> 캠페인 AI
+                </button>
+            </div>
+        </header>
+
+        <!-- MAIN VIEW: CHAT -->
+        <main id="view-chat" class="flex-1 flex flex-col relative overflow-hidden">
+            
+            <!-- Persona Selection Screen -->
+            <div id="persona-selection-screen" class="absolute inset-0 bg-gray-50 z-10 flex flex-col p-4 overflow-y-auto">
+                <div class="mb-4 bg-amber-50 border border-amber-200 rounded-2xl p-4 text-amber-900 shadow-sm">
+                    <h2 class="font-bold text-base mb-1 flex items-center">
+                        <i class="fa-solid fa-earth-asia text-amber-600 mr-2"></i> 대화하고 싶은 친구를 선택하세요
+                    </h2>
+                    <p class="text-xs text-amber-700">지구촌 어린이 챗봇과 카카오톡처럼 대화하며 친구들의 어려움과 바람을 들어보세요.</p>
+                </div>
+
+                <div class="space-y-3 flex-1 pb-6" id="persona-cards-container">
+                    <!-- Dynamic Persona Cards rendered via JS -->
+                </div>
+            </div>
+
+            <!-- KakaoTalk Style Chat Room -->
+            <div id="chatroom-screen" class="flex-1 chat-bg flex flex-col h-full relative">
+                
+                <!-- Chat Notification Banner -->
+                <div class="bg-black/20 text-white text-[11px] py-1 px-3 text-center backdrop-blur-sm">
+                    <i class="fa-solid fa-lock mr-1"></i> 챗봇과의 대화는 도덕 수업 학습용으로 안전하게 진행됩니다.
+                </div>
+
+                <!-- Chat Messages Scroll Container -->
+                <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-4 chat-scroll">
+                    <!-- Messages inserted dynamically -->
+                </div>
+
+                <!-- Typing Indicator -->
+                <div id="typing-indicator" class="hidden px-4 py-1 text-xs text-gray-600 italic bg-transparent">
+                    <span id="typing-persona-name">친구</span>가 답변을 작성하고 있습니다...
+                </div>
+
+                <!-- Chat Input Bottom Bar -->
+                <footer class="bg-white p-2 border-t border-gray-200 flex items-center gap-2 z-10">
+                    <button class="text-gray-500 hover:text-amber-600 p-2 text-lg">
+                        <i class="fa-solid fa-circle-plus"></i>
+                    </button>
+                    <input type="text" id="chat-input" placeholder="메시지를 입력하세요..." 
+                           class="flex-1 bg-gray-100 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 border border-gray-200"
+                           onkeypress="if(event.key === 'Enter') sendMessage()">
+                    <button onclick="sendMessage()" class="bg-[#ffe812] hover:bg-yellow-400 text-amber-950 font-bold px-4 py-2.5 rounded-full text-sm shadow transition-transform active:scale-95 flex items-center justify-center">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </footer>
+            </div>
+        </main>
+
+        <!-- MAIN VIEW: CAMPAIGN IMAGE GENERATION -->
+        <main id="view-campaign" class="flex-1 hidden flex flex-col bg-gray-50 overflow-y-auto p-4 space-y-4">
+            
+            <div class="bg-indigo-900 text-white p-4 rounded-2xl shadow">
+                <span class="text-xs bg-indigo-700 text-indigo-200 px-2 py-0.5 rounded-full font-semibold">2차시 활동</span>
+                <h2 class="font-bold text-lg mt-1"><i class="fa-solid fa-palette text-yellow-300 mr-2"></i>인류애 나눔 캠페인 이미지 제작</h2>
+                <p class="text-xs text-indigo-200 mt-1">1차시 대화 내용을 바탕으로 지구촌 어린이를 도울 홍보 이미지를 AI로 만들어보세요.</p>
+            </div>
+
+            <!-- AI Image Prompt Input Form -->
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 space-y-3">
+                <label class="block font-bold text-gray-800 text-sm">
+                    1. 전달하고 싶은 캠페인 홍보 프롬프트 (명령어)
+                </label>
+                <textarea id="prompt-input" rows="3" 
+                          placeholder="예: 깨끗한 물을 선물 받아 환하게 웃고 있는 아프리카 어린이들의 희망찬 모습을 담은 캠페인 포스터 스타일의 일러스트"
+                          class="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none"></textarea>
+                
+                <div class="flex justify-between items-center text-xs text-gray-500">
+                    <span>💡 원치 않는 요소가 나오면 단어를 추가해 수정해보세요!</span>
+                </div>
+
+                <button id="generate-img-btn" onclick="generateCampaignImage()" 
+                        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 text-sm">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> AI 캠페인 이미지 생성하기
+                </button>
+            </div>
+
+            <!-- Result Showcase Area -->
+            <div id="image-result-box" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 flex flex-col items-center justify-center min-h-[250px] relative">
+                <div id="img-placeholder" class="text-center text-gray-400 space-y-2 py-8">
+                    <i class="fa-regular fa-image text-4xl text-gray-300"></i>
+                    <p class="text-xs">프롬프트를 입력하고 생성 버튼을 눌러주세요.</p>
+                </div>
+
+                <!-- Loading Spinner -->
+                <div id="img-loading" class="hidden text-center space-y-3 py-8">
+                    <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-600 border-t-transparent"></div>
+                    <p class="text-xs text-indigo-700 font-semibold">AI가 캠페인 홍보 이미지를 그리고 있습니다...</p>
+                </div>
+
+                <!-- Generated Image Output Container -->
+                <div id="img-output-container" class="hidden w-full flex flex-col items-center space-y-3">
+                    <img id="generated-image" class="w-full h-auto rounded-xl shadow border border-gray-200 object-cover" alt="캠페인 이미지">
+                    
+                    <div class="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 text-xs text-gray-700">
+                        <span class="font-bold text-indigo-900 block mb-1">사용된 프롬프트:</span>
+                        <p id="used-prompt-text" class="italic text-gray-600"></p>
+                    </div>
+
+                    <div class="flex gap-2 w-full">
+                        <button onclick="downloadImage()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2.5 rounded-xl shadow flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-download"></i> 이미지 저장
+                        </button>
+                        <button onclick="copyPrompt()" class="flex-1 bg-gray-700 hover:bg-gray-800 text-white text-xs font-bold py-2.5 rounded-xl shadow flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-copy"></i> 프롬프트 복사
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+    </div>
+
+    <!-- API KEY SETTINGS MODAL (GitHub Security Fix) -->
+    <div id="api-key-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex justify-center items-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl animate-fade-in">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 class="font-bold text-gray-800 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-key text-amber-500"></i> Gemini API 키 설정
+                </h3>
+                <button onclick="closeApiKeyModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <p class="text-xs text-gray-600 leading-relaxed">
+                GitHub 배포 시 보안을 위해 코드 내 API 키가 삭제되었습니다. Google AI Studio에서 발급받은 API 키를 입력하면 브라우저에 안전하게 저장됩니다.
+            </p>
+
+            <div>
+                <label class="block text-xs font-bold text-gray-700 mb-1">API Key</label>
+                <input type="password" id="api-key-input" placeholder="AIzaSy..." 
+                       class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeApiKeyModal()" class="px-4 py-2 bg-gray-200 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-300">취소</button>
+                <button onclick="saveApiKey()" class="px-4 py-2 bg-amber-600 text-white text-xs font-bold rounded-xl hover:bg-amber-700 shadow">저장하기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // 백엔드 프록시 서버 URL (Vercel Serverless Function / Firebase Cloud Function 주소)
+        const BACKEND_API_URL = "/api/gemini"; // 동일 도메인(Vercel/Firebase) 기준 상대 경로
+
+        const PERSONAS = {
+            amina: {
+                name: "아미나",
+                country: "소말리아",
+                age: "11세",
+                category: "보건",
+                bgGradient: "from-rose-500 to-red-600",
+                avatar: "https://placehold.co/100x100/e11d48/ffffff?text=Amina",
+                tagline: "아플 때 마음 놓고 치료받고 싶어요",
+                systemPrompt: `너는 소말리아에 사는 11살 아동 '아미나'야. 초등학교 6학년 한국 학생들과 카카오톡으로 대화하고 있어. 
+너는 마을에 보건소나 약이 부족해서 열병을 앓아도 치료받기 힘들었던 경험이 있어. 
+너의 바람은 아플 때 약을 먹고 안심하고 학교에 다닐 수 있는 것이야. 
+밝고 예의 바르게 말하며, 초등학생 눈높이에 맞게 감정과 소망을 솔직하고 정중하게 표현해줘. 
+문장은 카카오톡 메신저처럼 짧고 친근하게 작성해줘.`
+            },
+            raj: {
+                name: "라지",
+                country: "인도",
+                age: "12세",
+                category: "교육",
+                bgGradient: "from-amber-500 to-orange-600",
+                avatar: "https://placehold.co/100x100/d97706/ffffff?text=Raj",
+                tagline: "벽돌 공장 대신 학교에 가서 글을 읽고 싶어요",
+                systemPrompt: `너는 인도의 12살 아동 '라지'야. 생계를 위해 매일 벽돌 공장에서 일하느라 학교에 가지 못해.
+글을 읽고 쓰는 법을 너무 배우고 싶고 가방을 메고 학교에 가는 아이들이 부러워.
+예의 바르고 배움에 대한 열정이 가득한 말투로 한국의 6학년 학생과 대화해줘.
+카카오톡 스타일의 친근한 짧은 문장으로 답변해줘.`
+            },
+            zaid: {
+                name: "자이드",
+                country: "시리아",
+                age: "12세",
+                category: "난민",
+                bgGradient: "from-blue-500 to-indigo-600",
+                avatar: "https://placehold.co/100x100/2563eb/ffffff?text=Zaid",
+                tagline: "전쟁이 없는 안전한 곳에서 살고 싶어요",
+                systemPrompt: `너는 시리아 출신의 12살 난민 아동 '자이드'야. 전쟁으로 고향을 떠나 난민 캠프에서 살고 있어.
+전쟁 소리가 없는 평화로운 곳에서 가족들과 따뜻하게 지내며 헤어진 친구들을 다시 만나는 것이 꿈이야.
+한국 친구들에게 너의 상황과 소망을 진솔하고 따뜻하게 이야기해줘. 카카오톡 메신저 튜닝에 맞춰 답변해줘.`
+            },
+            nyasha: {
+                name: "냐샤",
+                country: "에티오피아",
+                age: "11세",
+                category: "식수",
+                bgGradient: "from-emerald-500 to-teal-600",
+                avatar: "https://placehold.co/100x100/059669/ffffff?text=Nyasha",
+                tagline: "깨끗한 물을 마음껏 마셔보고 싶어요",
+                systemPrompt: `너는 에티오피아의 11살 아동 '냐샤'야. 매일 깨끗한 물을 얻으려고 왕복 3시간 동안 걸어서 물을 기르러 가.
+오염된 흙탕물 때문에 배탈이 나기도 하지만 마실 물이 부족해. 수도꼭지에서 나오는 깨끗한 물을 자유롭게 마시는 게 소원이야.
+친절하고 솔직하게 한국의 6학년 학생들과 카카오톡 메시지를 주고받아줘.`
+            },
+            lucas: {
+                name: "루카스",
+                country: "아이티",
+                age: "12세",
+                category: "빈곤",
+                bgGradient: "from-purple-500 to-violet-600",
+                avatar: "https://placehold.co/100x100/7c3aed/ffffff?text=Lucas",
+                tagline: "배고픔 걱정 없이 가족들과 웃고 싶어요",
+                systemPrompt: `너는 아이티의 12살 아동 '루카스'야. 경제적 어려움으로 하루 한 끼를 제대로 먹기 힘들고 가끔 진흙 쿠키로 허기를 달래.
+배부르게 음식을 먹고 걱정 없이 학교에 가는 게 꿈이야.
+한국 6학년 친구의 질문에 솔직하고 다정하게 대답해주고 카카오톡 말투를 써줘.`
+            }
+        };
+
+        let currentPersonaKey = null;
+        let chatHistories = { amina: [], raj: [], zaid: [], nyasha: [], lucas: [] };
+
+        window.onload = function() {
+            renderPersonaCards();
+            showPersonaList();
+        };
+
+        function renderPersonaCards() {
+            const container = document.getElementById('persona-cards-container');
+            container.innerHTML = '';
+
+            Object.keys(PERSONAS).forEach(key => {
+                const p = PERSONAS[key];
+                const card = document.createElement('div');
+                card.className = `bg-white rounded-2xl p-4 shadow-sm border border-gray-200 hover:shadow-md transition-all cursor-pointer flex items-center justify-between group`;
+                card.onclick = () => selectPersona(key);
+
+                card.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <img src="${p.avatar}" class="w-14 h-14 rounded-full object-cover border-2 border-amber-300 shadow-sm" alt="${p.name}">
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <span class="font-bold text-gray-900 text-base">${p.name}</span>
+                                <span class="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-medium">${p.category}</span>
+                            </div>
+                            <p class="text-xs text-gray-500">${p.country} · ${p.age}</p>
+                            <p class="text-xs text-gray-700 mt-1 font-medium group-hover:text-amber-600 transition-colors">"${p.tagline}"</p>
+                        </div>
+                    </div>
+                    <div class="text-amber-500 group-hover:translate-x-1 transition-transform">
+                        <i class="fa-solid fa-chevron-right text-lg"></i>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function switchTab(tab) {
+            const chatView = document.getElementById('view-chat');
+            const campaignView = document.getElementById('view-campaign');
+            const btnChat = document.getElementById('tab-chat-btn');
+            const btnCampaign = document.getElementById('tab-campaign-btn');
+
+            if (tab === 'chat') {
+                chatView.classList.remove('hidden');
+                campaignView.classList.add('hidden');
+                btnChat.className = "px-3 py-1 bg-yellow-400 text-amber-950 font-bold rounded-full text-xs shadow hover:bg-yellow-300";
+                btnCampaign.className = "px-3 py-1 bg-gray-700 text-gray-200 font-bold rounded-full text-xs shadow hover:bg-gray-600";
+            } else {
+                chatView.classList.add('hidden');
+                campaignView.classList.remove('hidden');
+                btnChat.className = "px-3 py-1 bg-gray-700 text-gray-200 font-bold rounded-full text-xs shadow hover:bg-gray-600";
+                btnCampaign.className = "px-3 py-1 bg-yellow-400 text-amber-950 font-bold rounded-full text-xs shadow hover:bg-yellow-300";
+            }
+        }
+
+        function showPersonaList() {
+            currentPersonaKey = null;
+            document.getElementById('persona-selection-screen').classList.remove('hidden');
+            document.getElementById('back-btn').classList.add('hidden');
+            document.getElementById('header-title').innerText = "지구촌 친구들";
+            document.getElementById('header-subtitle').innerText = "6학년 도덕 6단원 2~3차시";
+        }
+
+        function selectPersona(key) {
+            currentPersonaKey = key;
+            const p = PERSONAS[key];
+            
+            document.getElementById('persona-selection-screen').classList.add('hidden');
+            document.getElementById('back-btn').classList.remove('hidden');
+            document.getElementById('header-title').innerText = `${p.name} (${p.country})`;
+            document.getElementById('header-subtitle').innerText = `주제: ${p.category} 문제 공감하기`;
+
+            if (chatHistories[key].length === 0) {
+                const greeting = `안녕! 나는 ${p.country}에 사는 ${p.age} ${p.name}(이)라고 해. 만나서 정말 반가워! 궁금한 게 있다면 편하게 물어봐줘!`;
+                chatHistories[key].push({ role: "model", text: greeting });
+            }
+
+            renderChatMessages();
+        }
+
+        function renderChatMessages() {
+            const container = document.getElementById('chat-messages');
+            container.innerHTML = '';
+
+            if (!currentPersonaKey) return;
+            const p = PERSONAS[currentPersonaKey];
+
+            chatHistories[currentPersonaKey].forEach(msg => {
+                const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                
+                if (msg.role === 'model') {
+                    const row = document.createElement('div');
+                    row.className = 'flex items-start space-x-2 mb-3';
+                    row.innerHTML = `
+                        <img src="${p.avatar}" class="w-9 h-9 rounded-full object-cover border border-amber-300 shadow-sm flex-shrink-0" alt="${p.name}">
+                        <div class="flex flex-col">
+                            <span class="text-xs font-semibold text-gray-700 mb-1">${p.name}</span>
+                            <div class="flex items-end space-x-1">
+                                <div class="bg-white text-gray-900 px-3.5 py-2 rounded-2xl rounded-tl-none text-sm shadow-sm relative speech-bubble-left max-w-[220px] sm:max-w-[280px] leading-relaxed">
+                                    ${msg.text}
+                                </div>
+                                <span class="text-[10px] text-gray-500 mb-0.5">${timeStr}</span>
+                            </div>
+                        </div>
+                    `;
+                    container.appendChild(row);
+                } else {
+                    const row = document.createElement('div');
+                    row.className = 'flex justify-end items-end space-x-1 mb-3';
+                    row.innerHTML = `
+                        <span class="text-[10px] text-gray-500 mb-0.5">${timeStr}</span>
+                        <div class="bg-[#ffe812] text-amber-950 px-3.5 py-2 rounded-2xl rounded-tr-none text-sm shadow-sm relative speech-bubble-right max-w-[220px] sm:max-w-[280px] leading-relaxed font-medium">
+                            ${msg.text}
+                        </div>
+                    `;
+                    container.appendChild(row);
+                }
+            });
+
+            container.scrollTop = container.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const inputEl = document.getElementById('chat-input');
+            const text = inputEl.value.trim();
+            if (!text || !currentPersonaKey) return;
+
+            chatHistories[currentPersonaKey].push({ role: "user", text: text });
+            inputEl.value = '';
+            renderChatMessages();
+
+            const p = PERSONAS[currentPersonaKey];
+            document.getElementById('typing-persona-name').innerText = p.name;
+            document.getElementById('typing-indicator').classList.remove('hidden');
+
+            try {
+                const responseText = await fetchGeminiPersonaResponse(currentPersonaKey);
+                chatHistories[currentPersonaKey].push({ role: "model", text: responseText });
+            } catch (err) {
+                console.error("API Error:", err);
+                chatHistories[currentPersonaKey].push({ 
+                    role: "model", 
+                    text: "미안해, 네트워크 연결에 잠시 문제가 생겼어. 다시 한 번 말해줄래?" 
+                });
+            } finally {
+                document.getElementById('typing-indicator').classList.add('hidden');
+                renderChatMessages();
+            }
+        }
+
+        // 백엔드 API 서버를 거쳐 Gemini 대화 응답을 수신하는 함수
+        async function fetchGeminiPersonaResponse(personaKey) {
+            const p = PERSONAS[personaKey];
+
+            const contents = chatHistories[personaKey].map(msg => ({
+                role: msg.role === 'model' ? 'model' : 'user',
+                parts: [{ text: msg.text }]
+            }));
+
+            const response = await fetch(BACKEND_API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: "text",
+                    model: "gemini-3-flash-preview",
+                    contents: contents,
+                    systemInstruction: {
+                        parts: [{ text: p.systemPrompt }]
+                    }
+                })
+            });
+
+            const result = await response.json();
+            return result?.text || "응, 네 이야기를 들으니 마음이 따뜻해져. 고마워!";
+        }
+
+        // 백엔드 API 서버를 거쳐 캠페인 이미지를 생성하는 함수
+        async function generateCampaignImage() {
+            const promptInput = document.getElementById('prompt-input');
+            const userPrompt = promptInput.value.trim();
+
+            if (!userPrompt) {
+                alert("캠페인 홍보 프롬프트(명령어)를 입력해주세요!");
+                return;
+            }
+
+            const btn = document.getElementById('generate-img-btn');
+            const placeholder = document.getElementById('img-placeholder');
+            const loading = document.getElementById('img-loading');
+            const outputContainer = document.getElementById('img-output-container');
+
+            btn.disabled = true;
+            btn.classList.add('opacity-50');
+            placeholder.classList.add('hidden');
+            outputContainer.classList.add('hidden');
+            loading.classList.remove('hidden');
+
+            try {
+                const response = await fetch(BACKEND_API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: "image",
+                        prompt: `Create a high quality campaign poster illustration for children: ${userPrompt}`
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result && result.imageUrl) {
+                    document.getElementById('generated-image').src = result.imageUrl;
+                    document.getElementById('used-prompt-text').innerText = userPrompt;
+                    
+                    loading.classList.add('hidden');
+                    outputContainer.classList.remove('hidden');
+                } else {
+                    throw new Error("이미지 생성에 실패했습니다.");
+                }
+
+            } catch (err) {
+                console.error("Image Generation Error:", err);
+                alert("이미지 생성 중 오류가 발생했습니다. 프롬프트를 수정 후 다시 시도해 주세요.");
+                loading.classList.add('hidden');
+                placeholder.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove('opacity-50');
+            }
+        }
+
+        function downloadImage() {
+            const img = document.getElementById('generated-image');
+            if (!img.src) return;
+            
+            const link = document.createElement('a');
+            link.href = img.src;
+            link.download = `지구촌_인류애_캠페인_포스터.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function copyPrompt() {
+            const text = document.getElementById('used-prompt-text').innerText;
+            if (!text) return;
+
+            const tempInput = document.createElement('textarea');
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+
+            alert("프롬프트가 클립보드에 복사되었습니다!");
+        }
+    </script>
+</body>
+</html>
