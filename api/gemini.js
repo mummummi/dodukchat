@@ -1,4 +1,5 @@
 export default async function handler(req, res) {
+  // CORS 헤더 설정
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -9,15 +10,15 @@ export default async function handler(req, res) {
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    console.error("오류: GEMINI_API_KEY가 설정되지 않았습니다.");
-    return res.status(500).json({ error: 'GEMINI_API_KEY 환경변수가 설정되지 않았습니다. Vercel Settings를 확인하세요.' });
+    return res.status(500).json({ error: 'GEMINI_API_KEY 환경변수가 설정되지 않았습니다.' });
   }
 
   const { type, contents, systemInstruction, prompt } = req.body;
 
   try {
     if (type === 'text') {
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      // v1beta 버전의 gemini-2.5-flash 호환 모델 사용
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
       let sysPart = undefined;
       if (systemInstruction) {
@@ -42,8 +43,8 @@ export default async function handler(req, res) {
       const result = await apiRes.json();
 
       if (!apiRes.ok || result.error) {
-        console.error("Gemini API 호출 실패:", result.error);
-        return res.status(apiRes.status || 500).json({ error: result.error?.message || "Gemini API호출 에러" });
+        console.error("Gemini API Error Detail:", result.error);
+        return res.status(apiRes.status || 500).json({ error: result.error?.message || "API 호출 오류" });
       }
 
       const responseText = result?.candidates?.[0]?.content?.parts?.[0]?.text || "";
